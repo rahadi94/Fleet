@@ -92,9 +92,8 @@ class Vehicle:
         self.count_times['idle'] += 1
         print(f'Vehicle {self.id} drop off the user at {self.env.now}')
 
-    def charge(self):
+    def charge(self, charging_station):
         print(f'Charging state of vehicle {self.id} is {self.charge_state}')
-        charging_station = ChargingStation(self.env)
         print(f'Vehicle {self.id} is going to be charged at {self.env.now}')
         distance_to_CS = self.location.distance(charging_station.location)
         time_to_CS = round(distance_to_CS / self.speed)
@@ -115,7 +114,7 @@ class Vehicle:
                                'duration': charge_duration,
                                'start time': self.env.now,
                                'end time': self.env.now + charge_duration})
-        self.location = ChargingStation(self.env).location
+        self.location = charging_station.location
         print(f'Vehicle {self.id} start charging at {self.env.now}')
         self.mode = 'charging'
         yield self.env.timeout(charge_duration)
@@ -124,13 +123,6 @@ class Vehicle:
         self.count_seconds['ertc'] += self.task_list[-2]['duration']
         self.count_seconds['charging'] += self.task_list[-1]['duration']
         self.count_km['ertc'] += distance_to_CS
+        self.mode = 'idle'
 
-    # print('We receive a request at %d' % self.env.now)
-    # print('Start driving at %d' % self.env.now)
-    # print('Vehicle pick up the user at %d' % self.env.now)
-    # print info here
-    # call pickup on vehicle
-    # print info here
-    # call travel on vehicle
-    # print more info here
-    # call charge on vehicle
+

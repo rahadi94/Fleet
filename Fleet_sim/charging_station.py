@@ -1,9 +1,11 @@
-from Fleet_sim.location import Location
+import simpy
 
 
 class ChargingStation:
 
-    def __init__(self, env):
+    def __init__(self, id, env, location, power):
         self.env = env
-        self.location = Location(5.4, 5.0)
-        self.power = 0.5  # kwh/min
+        self.plugs = simpy.Resource(self.env, capacity=2)
+        self.id = id
+        self.location = location
+        self.power = power  # kwh/min

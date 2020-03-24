@@ -1,42 +1,24 @@
-from typing import List
-
-from simpy import Environment
 
 from Fleet_sim.charging_station import ChargingStation
 from Fleet_sim.location import Location
-from Fleet_sim.trip import Trip
 from Fleet_sim.vehicle import Vehicle
 from Fleet_sim.model import Model
 import simpy
 
-"""
- 1) read data from persistence XXX
- 2) create Vehicles based on that data XXX
- 3) run simulation with vehicles
-    3a) wait for request
-    3b) pick up person
-    3c) bring person to destination
-    3d) go charge up
-"""
 env = simpy.Environment()
+
+# Initializing vehicles
+
 vehicle_data = [
 
     dict(id=1, env=env, initial_location=Location(5.1, 4.8), capacity=150, charge_state=100, mode='idle'),
     dict(id=2, env=env, initial_location=Location(5.3, 5.0), capacity=150, charge_state=100, mode='idle'),
     dict(id=3, env=env, initial_location=Location(5.0, 5.0), capacity=150, charge_state=100, mode='idle'),
     dict(id=4, env=env, initial_location=Location(4.9, 5.1), capacity=150, charge_state=100, mode='idle'),
-    dict(id=5, env=env, initial_location=Location(4.8, 5.0), capacity=150, charge_state=100, mode='idle')
+    dict(id=13, env=env, initial_location=Location(4.8, 5.0), capacity=150, charge_state=100, mode='idle')
 
 ]
-CS_data = [
 
-    dict(id=1, env=env, location=Location(5.5, 5.5), power=5),
-    dict(id=2, env=env, location=Location(4.8, 4.8), power=5),
-    dict(id=3, env=env, location=Location(5.0, 5.0), power=5),
-    dict(id=4, env=env, location=Location(5.2, 4.9), power=5),
-    dict(id=5, env=env, location=Location(5.1, 4.9), power=5),
-
-]
 vehicles = list()
 
 for data in vehicle_data:
@@ -49,6 +31,18 @@ for data in vehicle_data:
         data['mode']
     ))
     vehicles.append(vehicle)
+
+# Initializing charging stations
+
+CS_data = [
+
+    dict(id=1, env=env, location=Location(5.5, 5.5), power=5),
+    dict(id=2, env=env, location=Location(4.8, 4.8), power=5),
+    dict(id=3, env=env, location=Location(5.0, 5.0), power=5),
+    dict(id=4, env=env, location=Location(5.2, 4.9), power=5),
+    dict(id=5, env=env, location=Location(5.1, 4.9), power=5),
+
+]
 
 charging_stations = list()
 
@@ -65,12 +59,8 @@ for data in CS_data:
 
 sim = Model(env)
 # I must define number of trips instead of one!!!!
-envs = [env, env]
-trips = [Trip(i) for i in envs]
 
-for trip in trips:
-    env.process(sim.run(vehicles, charging_stations, trips))
-
+env.process(sim.run(vehicles, charging_stations))
 env.run(until=1000)
 
 for vehicle in vehicles:
@@ -81,9 +71,19 @@ for vehicle in vehicles:
 # print(vehicles[1].__dict__)
 """
 Extension:
-1. Define charging station as a SimPy resource
-2. Send the vehicle to the closest CS
-3. Processes should be operated in parallel
-4. Define a fleet as a class
-5.
+. Processes should be operated in parallel
+. Define a fleet as a class
+. Use real data for trip generation
+. Use a real city 
+. Use driving distances between to points (i.g. Google Map)
+. Record waiting time for each trip
+. If there is no available car, the earliest option should assign to the trip (If vehicle in CS got enough charge
+    or the best option among vehicles in service)
+. Consider a waiting time tolerance for each trip after which the trip is missed
+. Count missed trips
+. Calculate charging cost and revenue 
+. We can consider different size of vehicles
+. We can consider different trips (pooling, multi-destination)
+. V2G connection 
+. We should measure waiting time, impact on the grid and REG utilization (First, we need to add REG to the model) 
 """

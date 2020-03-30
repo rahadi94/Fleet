@@ -19,7 +19,11 @@ def available_vehicle(vehicles, trip):
 class Model:
 
     def __init__(self, env):
+        self.waiting_list = []
         self.env = env
+        self.trip_end = env.event()
+        self.trip_start = env.event()
+        self.charging_end = env.event()
 
     def charge(self, charging_station, vehicle):
         vehicle.send_charge(charging_station)
@@ -27,6 +31,8 @@ class Model:
         vehicle.charging(charging_station)
         yield self.env.timeout(vehicle.charge_duration)
         vehicle.finish_charging(charging_station)
+        self.charging_end.succeed()
+        self.charging_end = self.env.event()
 
     # Checking charge status for vehicles and send them to charge if necessary
 
@@ -42,6 +48,9 @@ class Model:
                     self.env.process(self.charge(charging_station, vehicle))
 
     def take_trip(self, trip, vehicle):
+
+        self.trip_start.succeed()
+        self.trip_start = self.env.event()
         vehicle.send(trip)
         trip.mode = 'assigned'
         yield self.env.timeout(vehicle.time_to_pickup)
@@ -49,35 +58,60 @@ class Model:
         trip.mode = 'in vehicle'
         yield self.env.timeout(trip.duration)
         vehicle.drop_off(trip)
+        self.trip_end.succeed()
+        self.trip_end = self.env.event()
         trip.mode = 'finished'
 
     def trip_task(self, vehicles, trip):
-        distances = [vehicle.location.distance(trip.origin) for vehicle in vehicles]
         available_vehicles = available_vehicle(vehicles, trip)
+        distances = [vehicle.location.distance(trip.origin) for vehicle in available_vehicles]
         # If there is no available vehicle, add the trip to the waiting list
         if len(available_vehicles) == 0:
-            print('There is no available vehicle to respond the trip')
+            print(f'There is no available vehicle to respond trip {trip.id}')
             trip.mode = 'unassigned'
+            #self.waiting_list.append(trip)
         # Assigning the closest available vehicle to the trip
         else:
+            print(f'There is/are {len(available_vehicles)} available vehicle(s) for trip {trip.id}')
             for vehicle in available_vehicles:
                 if vehicle.location.distance(trip.origin) == min(distances):
-                    with vehicle.source.request() as req:
-                        yield req
-                        self.env.process(self.take_trip(trip, vehicle))
+                    self.env.process(self.take_trip(trip, vehicle))
 
-    def run(self, vehicles, charging_stations):
+    def run_1(self, vehicles, charging_stations):
         j = 0
-        trips = []
         # Trips are being generated randomly and cannot be rejected
         while True:
             j += 1
             trip = Trip(j)
-            yield self.env.timeout(trip.start_time)
-            trips.append(trip)
-            for trip in trips:
-                if trip.mode == 'unassigned':
-                    self.env.process(self.trip_task(vehicles, trip))
-
+            event_1 = self.env.timeout(trip.start_time)
+            yield event_1
+            self.waiting_list.append(trip)
             self.env.process(self.charge_task(vehicles, charging_stations))
+            print(f'Trip {trip.id} is received at {self.env.now}')
+            for trip in self.waiting_list:
+                if trip.mode == 'unassigned':
+                    self.trip_task(vehicles, trip)
+                    yield self.env.timeout(0)
 
+
+
+    def run_2(self, vehicles, charging_stations):
+        while True:
+            event_2 = self.trip_end
+            event_3 = self.charging_end
+            events = yield event_2 | event_3
+            if event_2 in events:
+                print(f'A vehicle get idle at {self.env.now}')
+                self.env.process(self.charge_task(vehicles, charging_stations))
+                for trip in self.waiting_list:
+                    if trip.mode == 'unassigned':
+                        self.trip_task(vehicles, trip)
+                        yield self.env.timeout(0)
+
+
+            if event_3 in events:
+                print(f'A vehicle get charged at {self.env.now}')
+                for trip in self.waiting_list:
+                    if trip.mode == 'unassigned':
+                        self.trip_task(vehicles, trip)
+                        yield self.env.timeout(0)

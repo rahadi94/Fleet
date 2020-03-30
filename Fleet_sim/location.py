@@ -1,4 +1,5 @@
 from geopy.distance import geodesic
+import random
 
 
 class Location:

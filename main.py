@@ -1,21 +1,38 @@
-
 from Fleet_sim.charging_station import ChargingStation
+from Fleet_sim.data import vehicles, charging_stations
 from Fleet_sim.location import Location
-from Fleet_sim.vehicle import Vehicle
 from Fleet_sim.model import Model
 import simpy
+import random
+
+from Fleet_sim.vehicle import Vehicle
 
 env = simpy.Environment()
 
-# Initializing vehicles
+
+def generate_location():
+    return Location(random.normalvariate(5, 0.5), random.normalvariate(5, 0.5))
+
 
 vehicle_data = [
 
-    dict(id=1, env=env, initial_location=Location(5.1, 4.8), capacity=150, charge_state=100, mode='idle'),
-    dict(id=2, env=env, initial_location=Location(5.3, 5.0), capacity=150, charge_state=100, mode='idle'),
-    dict(id=3, env=env, initial_location=Location(5.0, 5.0), capacity=150, charge_state=100, mode='idle'),
-    dict(id=4, env=env, initial_location=Location(4.9, 5.1), capacity=150, charge_state=100, mode='idle'),
-    dict(id=13, env=env, initial_location=Location(4.8, 5.0), capacity=150, charge_state=100, mode='idle')
+    dict(id=1, env=env, initial_location=generate_location(), capacity=150, charge_state=100, mode='idle'),
+    dict(id=2, env=env, initial_location=generate_location(), capacity=150, charge_state=100, mode='idle'),
+    dict(id=3, env=env, initial_location=generate_location(), capacity=150, charge_state=100, mode='idle'),
+    dict(id=4, env=env, initial_location=generate_location(), capacity=150, charge_state=100, mode='idle'),
+    dict(id=5, env=env, initial_location=generate_location(), capacity=150, charge_state=100, mode='idle'),
+    dict(id=6, env=env, initial_location=generate_location(), capacity=150, charge_state=100, mode='idle'),
+    dict(id=7, env=env, initial_location=generate_location(), capacity=150, charge_state=100, mode='idle'),
+    dict(id=8, env=env, initial_location=generate_location(), capacity=150, charge_state=100, mode='idle'),
+    dict(id=9, env=env, initial_location=generate_location(), capacity=150, charge_state=100, mode='idle'),
+    dict(id=10, env=env, initial_location=generate_location(), capacity=150, charge_state=100, mode='idle'),
+    dict(id=11, env=env, initial_location=generate_location(), capacity=150, charge_state=100, mode='idle'),
+    dict(id=12, env=env, initial_location=generate_location(), capacity=150, charge_state=100, mode='idle'),
+    dict(id=13, env=env, initial_location=generate_location(), capacity=150, charge_state=100, mode='idle'),
+    dict(id=14, env=env, initial_location=generate_location(), capacity=150, charge_state=100, mode='idle'),
+    dict(id=15, env=env, initial_location=generate_location(), capacity=150, charge_state=100, mode='idle'),
+    dict(id=16, env=env, initial_location=generate_location(), capacity=150, charge_state=100, mode='idle'),
+    dict(id=17, env=env, initial_location=generate_location(), capacity=150, charge_state=100, mode='idle')
 
 ]
 
@@ -31,7 +48,7 @@ for data in vehicle_data:
         data['mode']
     ))
     vehicles.append(vehicle)
-
+vehicles = vehicles[:5]
 # Initializing charging stations
 
 CS_data = [
@@ -56,12 +73,10 @@ for data in CS_data:
     ))
     charging_stations.append(charging_station)
 
-
 sim = Model(env)
-# I must define number of trips instead of one!!!!
-
-env.process(sim.run(vehicles, charging_stations))
-env.run(until=1000)
+env.process(sim.run_1(vehicles, charging_stations))
+env.process(sim.run_2(vehicles, charging_stations))
+env.run(until=500)
 
 for vehicle in vehicles:
     print(vehicle.charge_state)
@@ -70,9 +85,8 @@ for vehicle in vehicles:
     print(vehicle.count_seconds)
 # print(vehicles[1].__dict__)
 """
-Extension:
-. Processes should be operated in parallel
-. Define a fleet as a class
+Extension and debugs:
+. Process task-trip when a vehicle drop off a user or finish charging (I guess we need use events) (done)
 . Use real data for trip generation
 . Use a real city 
 . Use driving distances between to points (i.g. Google Map)

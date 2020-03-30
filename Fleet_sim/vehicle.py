@@ -46,8 +46,8 @@ class Vehicle:
         self.count_km['ertc'] = 0.0
         self.task_list = list()
 
+
     def send(self, trip):
-        print(f'Trip {trip.id} is received at {self.env.now}')
         distance_to_pickup = self.location.distance(trip.origin)
         distance_to_dropoff = self.location.distance(trip.destination)
 

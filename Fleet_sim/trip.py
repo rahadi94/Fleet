@@ -15,6 +15,9 @@ class Trip:
         self.duration = round(distance_1 / 10)
         self.end_time = self.start_time + self.duration
         self.mode = 'unassigned'
+        self.waiting_time = None
+
+
 
         """
         Allowed modes are:

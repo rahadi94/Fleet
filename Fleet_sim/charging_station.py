@@ -2,9 +2,9 @@ import simpy
 
 class ChargingStation:
 
-    def __init__(self, id, env, location, power):
+    def __init__(self, id, env, location, power, Number_of_chargers):
         self.env = env
-        self.plugs = simpy.PreemptiveResource(self.env, capacity=2)
+        self.plugs = simpy.PreemptiveResource(self.env, capacity=Number_of_chargers)
         self.id = id
         self.location = location
         self.power = power  # kwh/min

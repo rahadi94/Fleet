@@ -4,7 +4,6 @@ import numpy as np
 from Fleet_sim.vehicle import Vehicle
 
 
-Deep_Learning.ipynb
 class Trip:
 
     def __init__(self, env, id, zone):

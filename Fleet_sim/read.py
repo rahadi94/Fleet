@@ -1,8 +1,4 @@
-import pandas as pd
-
 from Fleet_sim.Zone import Zone
-
-demand_table = pd.read_csv('demand_table.csv')
 
 z = 0
 zones = list()

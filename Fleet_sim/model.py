@@ -1,8 +1,14 @@
 import random
+from typing import List
+
 import pandas as pd
 import simpy
 import logging
+
+from Fleet_sim.Zone import Zone
+from Fleet_sim.charging_station import ChargingStation
 from Fleet_sim.trip import Trip
+from Fleet_sim.vehicle import Vehicle
 
 lg = logging.getLogger(__name__)
 lg.setLevel(logging.INFO)
@@ -36,10 +42,15 @@ def available_vehicle(vehicles, trip):
 
 class Model:
 
-    def __init__(self, env):
+    def __init__(self, env, zones: List[Zone], vehicles: List[Vehicle], charging_stations: List[ChargingStation]):
+        self.env = env
+        self.zones = zones
+        self.vehicles = vehicles
+        self.charging_stations = charging_stations
         self.waiting_list = []
         self.simulation_time = 240
-        self.env = env
+
+        # Events
         self.trip_end = env.event()
         self.trip_start = env.event()
         self.charge_start = env.event()
@@ -152,11 +163,14 @@ class Model:
             event_3 = self.charging_end
             event_4 = self.charging_interrupt
             events = yield event_1 | event_2 | event_3 | event_4
+
+            # Trip start event
             if event_1 in events:
                 for trip in self.waiting_list:
                     if trip.mode == 'unassigned':
                         self.trip_task(vehicles, trip)
                         yield self.env.timeout(0)
+
             if event_2 in events:
                 lg.info(f'A vehicle get idle at {self.env.now}')
                 vehicle = [v for v in vehicles if v.id == self.vehicle_id][0]

@@ -18,7 +18,7 @@ class Location:
     def find_zone(self, zones):
         distances_to_centers = [self.distance(zone.centre) for zone in zones]
         position = [x for x in zones
-                    if x.centre.distance(self) == min(distances_to_centers)][0].id
+                    if x.centre.distance(self) == min(distances_to_centers)][0]
         return position
 
 

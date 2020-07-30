@@ -3,6 +3,8 @@ from Fleet_sim.location import Location
 from Fleet_sim.model import Model
 import simpy
 import random
+
+from Fleet_sim.parking import Parking
 from Fleet_sim.read import zones
 from Fleet_sim.vehicle import Vehicle
 
@@ -16,7 +18,7 @@ def generate_location():
 
 
 vehicles_data = []
-for i in range(200):
+for i in range(500):
     vehicle_data = dict(id=i, env=env, initial_location=generate_location(), capacity=150, charge_state=100,
                         mode='idle')
     vehicles_data.append(vehicle_data)
@@ -38,15 +40,15 @@ vehicles = vehicles[:200]
 
 CS_data = [
 
-    dict(id=1, env=env, location=Location(13.85, 52.90), power=5, Number_of_chargers=2),
+    dict(id=1, env=env, location=Location(13.85, 52.90), power=5, Number_of_chargers=3),
     dict(id=2, env=env, location=Location(13.10, 52.00), power=5, Number_of_chargers=2),
-    dict(id=3, env=env, location=Location(13.20, 52.95), power=5, Number_of_chargers=2),
+    dict(id=3, env=env, location=Location(13.20, 52.95), power=5, Number_of_chargers=4),
     dict(id=4, env=env, location=Location(13.95, 52.05), power=5, Number_of_chargers=2),
-    dict(id=5, env=env, location=Location(13.05, 52.90), power=5, Number_of_chargers=2),
+    dict(id=5, env=env, location=Location(13.05, 52.90), power=5, Number_of_chargers=3),
     dict(id=6, env=env, location=Location(13.40, 52.30), power=5, Number_of_chargers=2),
-    dict(id=7, env=env, location=Location(13.10, 52.00), power=5, Number_of_chargers=2),
+    dict(id=7, env=env, location=Location(13.10, 52.00), power=5, Number_of_chargers=4),
     dict(id=8, env=env, location=Location(13.35, 52.50), power=5, Number_of_chargers=2),
-    dict(id=9, env=env, location=Location(13.95, 52.60), power=5, Number_of_chargers=2),
+    dict(id=9, env=env, location=Location(13.95, 52.60), power=5, Number_of_chargers=5),
     dict(id=10, env=env, location=Location(13.55, 52.75), power=5, Number_of_chargers=2),
 
 ]
@@ -64,19 +66,49 @@ for data in CS_data:
 
     ))
     charging_stations.append(charging_station)
-charging_stations = charging_stations[:5]
+charging_stations = charging_stations[:10]
+
+PK_data = [
+
+    dict(id=1, env=env, location=Location(13.15, 52.20), Number_of_parkings=10),
+    dict(id=2, env=env, location=Location(13.20, 52.20), Number_of_parkings=20),
+    dict(id=3, env=env, location=Location(13.30, 52.35), Number_of_parkings=15),
+    dict(id=4, env=env, location=Location(13.45, 52.55), Number_of_parkings=5),
+    dict(id=5, env=env, location=Location(13.25, 52.60), Number_of_parkings=14),
+    dict(id=6, env=env, location=Location(13.50, 52.70), Number_of_parkings=5),
+    dict(id=7, env=env, location=Location(13.60, 52.80), Number_of_parkings=15),
+    dict(id=8, env=env, location=Location(13.85, 52.70), Number_of_parkings=15),
+    dict(id=9, env=env, location=Location(13.05, 52.80), Number_of_parkings=16),
+    dict(id=10, env=env, location=Location(13.25, 52.75), Number_of_parkings=12),
+
+]
+
+# Initialize Charging Stations
+parkings = list()
+
+for data in PK_data:
+    parking = (Parking(
+        data['id'],
+        data['env'],
+        data['location'],
+        data['Number_of_parkings']
+
+    ))
+    parkings.append(parking)
 
 # Run simulation
-sim = Model(env)
+sim = Model(env, vehicles=vehicles, charging_stations=charging_stations, zones=zones, parkings=parkings)
 for zone in zones:
     env.process(sim.trip_generation(zone))
-env.process(sim.run(vehicles, charging_stations, zones))
+env.process(sim.run())
 
 for vehicle in vehicles:
     env.process(sim.obs_Ve(vehicle))
 
 for charging_station in charging_stations:
     env.process(sim.obs_CS(charging_station))
+for parking in parkings:
+    env.process(sim.obs_PK(parking))
 
 env.run(until=sim.simulation_time)
 
@@ -87,7 +119,7 @@ for vehicle in vehicles:
     print(vehicle.costs)
     print(vehicle.count_times)
     print(vehicle.count_seconds)
-sim.save_results(vehicles, charging_stations)
+sim.save_results()
 """
 Extension and debugs:
 . Should vehicles wait for travelers?

@@ -18,10 +18,12 @@ stream_handler.setLevel(logging.ERROR)
 lg.addHandler(file_handler)
 lg.addHandler(stream_handler)
 
+
 class Vehicle:
     speed = 1
     charging_cost = 10
     parking_cost = 5
+
     # remove everything env related and put it into VehicleSimulation
 
     def __init__(self, id, env, initial_location, capacity, charge_state, mode):
@@ -53,22 +55,27 @@ class Vehicle:
         self.count_times['idle'] = 1
         self.count_times['relocating'] = 0
         self.count_times['charging'] = 0
+        self.count_times['parking'] = 0
         self.count_times['ertc'] = 0
+        self.count_times['ertp'] = 0
         self.count_seconds = dict()
         self.count_seconds['active'] = 0.0
         self.count_seconds['locked'] = 0.0
         self.count_seconds['idle'] = 0.0
         self.count_seconds['relocating'] = 0.0
         self.count_seconds['charging'] = 0.0
+        self.count_seconds['parking'] = 0.0
         self.count_seconds['ertc'] = 0.0
-        #self.last_count_seconds_idle = 0.0
-        #self.last_count_seconds_relocating = 0.0
+        self.count_seconds['ertp'] = 0.0
+        # self.last_count_seconds_idle = 0.0
+        # self.last_count_seconds_relocating = 0.0
         self.count_km = dict()
         self.count_km['active'] = 0.0
         self.count_km['locked'] = 0.0
         self.count_km['relocating'] = 0.0
         self.count_km['ertc'] = 0.0
-        #self.task_list = list()
+        self.count_km['ertp'] = 0.0
+        # self.task_list = list()
         self.t_start_charging = None
         self.costs = dict()
         self.costs['charging'] = 0.0
@@ -88,7 +95,7 @@ class Vehicle:
                                           * self.fuel_consumption * 100.0 / self.battery_capacity
         self.rental_time = trip.duration
 
-        lg.info(f'Vehicle {self.id} is sent to the request {trip.id}')
+        print(f'Vehicle {self.id} is sent to the request {trip.id}')
         self.count_request_accepted += 1
 
         """self.task_list.append({'mode': 'locked',
@@ -111,7 +118,7 @@ class Vehicle:
 
     def pick_up(self, trip):
         self.mode = 'active'
-        lg.warning(f'Vehicle {self.id} pick up the user {trip.id} at {self.env.now}')
+        print(f'Vehicle {self.id} pick up the user {trip.id} at {self.env.now}')
         self.charge_state -= self.charge_consumption_pickup
         trip.info['pickup_time'] = self.env.now
         trip.info['waiting_time'] = trip.info['pickup_time'] - trip.info['arrival_time']
@@ -124,12 +131,12 @@ class Vehicle:
         self.location = trip.destination
         self.position = self.location.find_zone(zones)
         self.count_times['idle'] += 1
-        lg.info(f'Vehicle {self.id} drop off the user {trip.id} at {self.env.now}')
+        print(f'Vehicle {self.id} drop off the user {trip.id} at {self.env.now}')
 
     def send_charge(self, charging_station):
         self.mode = 'ertc'
-        lg.info(f'Charging state of vehicle {self.id} is {self.charge_state}')
-        lg.info(f'Vehicle {self.id} is sent to the charging station {charging_station.id} at {self.env.now}')
+        print(f'Charging state of vehicle {self.id} is {self.charge_state}')
+        print(f'Vehicle {self.id} is sent to the charging station {charging_station.id} at {self.env.now}')
         self.distance_to_CS = self.location.distance(charging_station.location)
         self.time_to_CS = self.distance_to_CS / self.speed
         charge_consumption_to_charging = self.distance_to_CS \
@@ -144,16 +151,17 @@ class Vehicle:
     def charging(self, charging_station):
         self.mode = 'charging'
         time = self.env.now
-        if time < 0.25 * 300:
+        if time < 0.25 * 240:
             self.charging_threshold = 100
-        elif time < 0.50 * 300:
+        elif time < 0.50 * 240:
             self.charging_threshold = 80
-        elif time < 0.75 * 300:
+        elif time < 0.75 * 240:
             self.charging_threshold = 80
         else:
             self.charging_threshold = 100
         self.charge_duration = (
-                ((self.charging_threshold - self.charge_state) * self.battery_capacity) / (100 * charging_station.power))
+                ((self.charging_threshold - self.charge_state) * self.battery_capacity) / (
+                    100 * charging_station.power))
         self.count_times['charging'] += 1
         """self.task_list.append({'mode': 'charging',
                                'duration': self.charge_duration,
@@ -161,7 +169,7 @@ class Vehicle:
                                'end time': self.env.now + self.charge_duration})"""
         self.location = charging_station.location
         self.position = self.location.find_zone(zones)
-        lg.info(f'Vehicle {self.id} start charging at {self.env.now}')
+        print(f'Vehicle {self.id} start charging at {self.env.now}')
         self.count_seconds['ertc'] += self.time_to_CS
         self.count_km['ertc'] += self.distance_to_CS
 
@@ -169,9 +177,8 @@ class Vehicle:
         self.mode = 'idle'
         self.costs['charging'] += (self.charging_threshold - self.charge_state) * self.charging_cost
         self.charge_state += (charging_station.power * self.charge_duration * 100) / self.battery_capacity
-        lg.info(f'Charging state of vehicle {self.id} is {self.charge_state} at {self.env.now} ')
+        print(f'Charging state of vehicle {self.id} is {self.charge_state} at {self.env.now} ')
         self.count_seconds['charging'] += self.charge_duration
-
 
     def relocate(self, target_zone):
         distance_to_target = self.location.distance(target_zone.centre)
@@ -182,7 +189,7 @@ class Vehicle:
         self.charge_consumption_relocate = (distance_to_target) \
                                            * self.fuel_consumption * 100.0 / self.battery_capacity
 
-        lg.info(f'Vehicle {self.id} is relocated to the zone {target_zone.id}')
+        print(f'Vehicle {self.id} is relocated to the zone {target_zone.id}')
         self.mode = 'relocating'
 
         """self.task_list.append({'mode': 'relocating',
@@ -199,5 +206,28 @@ class Vehicle:
         self.location = target_zone.centre
         self.position = self.location.find_zone(zones)
         self.mode = 'idle'
+
+    def send_parking(self, parking):
+        self.mode = 'ertp'
+        print(f'Vehicle {self.id} is sent to the parking {parking.id} at {self.env.now}')
+        self.distance_to_parking = self.location.distance(parking.location)
+        self.time_to_parking = self.distance_to_parking / self.speed
+        charge_consumption_to_parking = self.distance_to_parking \
+                                         * self.fuel_consumption * 100.0 / self.battery_capacity
+        self.charge_state -= charge_consumption_to_parking
+        self.count_times['ertp'] += 1
+        self.count_seconds['ertp'] += self.time_to_parking
+        self.count_km['ertp'] += self.distance_to_parking
+
+    def parking(self, parking):
+        self.mode = 'parking'
+        self.count_times['parking'] += 1
+        """self.task_list.append({'mode': 'parking',
+                               'duration': self.charge_duration,
+                               'start time': self.env.now,
+                               'end time': self.env.now + self.charge_duration})"""
+        self.location = parking.location
+        self.position = self.location.find_zone(zones)
+        print(f'Vehicle {self.id} start parking at {self.env.now}')
 
 

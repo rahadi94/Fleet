@@ -19,7 +19,7 @@ def generate_location():
 
 vehicles_data = []
 for i in range(500):
-    vehicle_data = dict(id=i, env=env, initial_location=generate_location(), capacity=150, charge_state=100,
+    vehicle_data = dict(id=i, env=env, initial_location=generate_location(), capacity=50, charge_state=100,
                         mode='idle')
     vehicles_data.append(vehicle_data)
 
@@ -35,21 +35,21 @@ for data in vehicles_data:
         data['mode']
     )
     vehicles.append(vehicle)
-vehicles = vehicles[:200]
+vehicles = vehicles[:500]
 # Initializing charging stations
 
 CS_data = [
 
-    dict(id=1, env=env, location=Location(13.85, 52.90), power=5, Number_of_chargers=3),
-    dict(id=2, env=env, location=Location(13.10, 52.00), power=5, Number_of_chargers=2),
-    dict(id=3, env=env, location=Location(13.20, 52.95), power=5, Number_of_chargers=4),
-    dict(id=4, env=env, location=Location(13.95, 52.05), power=5, Number_of_chargers=2),
-    dict(id=5, env=env, location=Location(13.05, 52.90), power=5, Number_of_chargers=3),
-    dict(id=6, env=env, location=Location(13.40, 52.30), power=5, Number_of_chargers=2),
-    dict(id=7, env=env, location=Location(13.10, 52.00), power=5, Number_of_chargers=4),
-    dict(id=8, env=env, location=Location(13.35, 52.50), power=5, Number_of_chargers=2),
-    dict(id=9, env=env, location=Location(13.95, 52.60), power=5, Number_of_chargers=5),
-    dict(id=10, env=env, location=Location(13.55, 52.75), power=5, Number_of_chargers=2),
+    dict(id=1, env=env, location=Location(13.85, 52.90), power=11/60, Number_of_chargers=3),
+    dict(id=2, env=env, location=Location(13.10, 52.00), power=11/60, Number_of_chargers=2),
+    dict(id=3, env=env, location=Location(13.20, 52.95), power=11/60, Number_of_chargers=4),
+    dict(id=4, env=env, location=Location(13.95, 52.05), power=11/60, Number_of_chargers=2),
+    dict(id=5, env=env, location=Location(13.05, 52.90), power=11/60, Number_of_chargers=3),
+    dict(id=6, env=env, location=Location(13.40, 52.30), power=11/60, Number_of_chargers=2),
+    dict(id=7, env=env, location=Location(13.10, 52.00), power=11/60, Number_of_chargers=4),
+    dict(id=8, env=env, location=Location(13.35, 52.50), power=11/60, Number_of_chargers=2),
+    dict(id=9, env=env, location=Location(13.95, 52.60), power=11/60, Number_of_chargers=5),
+    dict(id=10, env=env, location=Location(13.55, 52.75), power=11/60, Number_of_chargers=2),
 
 ]
 
@@ -68,25 +68,15 @@ for data in CS_data:
     charging_stations.append(charging_station)
 charging_stations = charging_stations[:10]
 
-PK_data = [
-
-    dict(id=1, env=env, location=Location(13.15, 52.20), Number_of_parkings=10),
-    dict(id=2, env=env, location=Location(13.20, 52.20), Number_of_parkings=20),
-    dict(id=3, env=env, location=Location(13.30, 52.35), Number_of_parkings=15),
-    dict(id=4, env=env, location=Location(13.45, 52.55), Number_of_parkings=5),
-    dict(id=5, env=env, location=Location(13.25, 52.60), Number_of_parkings=14),
-    dict(id=6, env=env, location=Location(13.50, 52.70), Number_of_parkings=5),
-    dict(id=7, env=env, location=Location(13.60, 52.80), Number_of_parkings=15),
-    dict(id=8, env=env, location=Location(13.85, 52.70), Number_of_parkings=15),
-    dict(id=9, env=env, location=Location(13.05, 52.80), Number_of_parkings=16),
-    dict(id=10, env=env, location=Location(13.25, 52.75), Number_of_parkings=12),
-
-]
+PKs_data = []
+for i in range(40):
+    PK_data = dict(id=i, env=env, location=generate_location(), Number_of_parkings=10)
+    PKs_data.append(PK_data)
 
 # Initialize Charging Stations
 parkings = list()
 
-for data in PK_data:
+for data in PKs_data:
     parking = (Parking(
         data['id'],
         data['env'],
@@ -110,6 +100,8 @@ for charging_station in charging_stations:
 for parking in parkings:
     env.process(sim.obs_PK(parking))
 
+env.process(sim.missed_trip())
+
 env.run(until=sim.simulation_time)
 
 
@@ -122,6 +114,9 @@ for vehicle in vehicles:
 sim.save_results()
 """
 Extension and debugs:
+. Critical:
+    . When a trip is consider as unserved
+. Define a function calculating the waiting time for each request.
 . Should vehicles wait for travelers?
 . Use driving distances between two points (i.g. Google Map)
 . Consider a waiting time tolerance for each trip after which the trip is missed

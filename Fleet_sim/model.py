@@ -21,7 +21,7 @@ lg.addHandler(stream_handler)
 
 
 # This function give us the available vehicles for a trip
-def available_vehicle(vehicles, trip, SOC_treshold=20, max_distance=20):
+def available_vehicle(vehicles, trip, SOC_treshold=20, max_distance=10):
     available_vehicles = list()
     for vehicle in vehicles:
         distance_to_pickup = vehicle.location.distance(trip.origin)
@@ -30,14 +30,14 @@ def available_vehicle(vehicles, trip, SOC_treshold=20, max_distance=20):
                              vehicle.fuel_consumption * 100.0 / vehicle.battery_capacity
         # Add idle vehicles that have enough energy to respond the trip into available vehicles and are not far away too much
         if distance_to_pickup <= max_distance:
-            if charge_consumption + SOC_treshold <= vehicle.charge_state and vehicle.mode in ['idle', 'parking']:
+            if charge_consumption + SOC_treshold <= vehicle.charge_state and vehicle.mode in ['idle', 'parking', 'ertp']:
                 available_vehicles.append(vehicle)
     return available_vehicles
 
 
 class Model:
 
-    def __init__(self, env, vehicles, charging_stations, zones, parkings, simulation_time=240):
+    def __init__(self, env, vehicles, charging_stations, zones, parkings, simulation_time=500):
         self.parkings = parkings
         self.zones = zones
         self.charging_stations = charging_stations
@@ -47,24 +47,26 @@ class Model:
         self.env = env
         self.trip_end = env.event()
         self.trip_start = env.event()
-        self.charge_start = env.event()
+        self.charging_start = env.event()
         self.charging_end = env.event()
         self.charging_interrupt = env.event()
         self.relocation_start = env.event()
         self.relocation_end = env.event()
 
     def park(self, vehicle, parking):
-        vehicle.send_parking(parking)
-        yield self.env.timeout(vehicle.time_to_parking)
+        if self.env.now > 5:
+            vehicle.send_parking(parking)
+            yield self.env.timeout(vehicle.time_to_parking)
         vehicle.parking(parking)
+        yield vehicle.parking_stop
 
     def parking_task(self, vehicle):
-        if vehicle.charge_state >= 70 and vehicle.mode == 'idle':
-            # Finding the closest charging station
+        if vehicle.charge_state >= 40 and vehicle.mode == 'idle':
+            # Finding the closest parking
             distances_to_PKs = [vehicle.location.distance(PK.location) for PK in self.parkings]
             parking = [x for x in self.parkings
                        if x.location.distance(vehicle.location) == min(distances_to_PKs)][0]
-            with parking.plugs.request() as req:
+            with parking.capacity.request() as req:
                 yield req
                 yield self.env.process(self.park(vehicle, parking))
 
@@ -92,8 +94,8 @@ class Model:
         yield self.env.timeout(vehicle.time_to_CS)
         vehicle.t_start_charging = self.env.now
         vehicle.charging(charging_station)
-        self.charge_start.succeed()
-        self.charge_start = self.env.event()
+        self.charging_start.succeed()
+        self.charging_start = self.env.event()
 
     def finish_charge(self, charging_station, vehicle):
 
@@ -114,7 +116,7 @@ class Model:
 
     # Checking charge status for vehicles and send them to charge if necessary
     def charge_task(self, vehicle):
-        if vehicle.charge_state <= 70 and vehicle.mode == 'idle':
+        if vehicle.charge_state <= 40 and vehicle.mode == 'idle':
             # Finding the closest charging station
             distances_to_CSs = [vehicle.location.distance(CS.location) for CS in self.charging_stations]
             charging_station = [x for x in self.charging_stations
@@ -146,12 +148,15 @@ class Model:
         distances = [vehicle.location.distance(trip.origin) for vehicle in available_vehicles]
         # If there is no available vehicle, add the trip to the waiting list
         if len(available_vehicles) == 0:
-            trip.mode = 'missed'
+            #trip.mode = 'missed'
             return
         # Assigning the closest available vehicle to the trip
         print(f'There is/are {len(available_vehicles)} available vehicle(s) for trip {trip.id}')
         vehicle = [x for x in available_vehicles
                    if x.location.distance(trip.origin) == min(distances)][0]
+        if vehicle.mode == 'parking':
+            vehicle.parking_stop.succeed()
+            vehicle.parking_stop = self.env.event()
         self.env.process(self.take_trip(trip, vehicle))
 
     def trip_generation(self, zone):
@@ -160,15 +165,29 @@ class Model:
         while True:
             j += 1
             trip = Trip(self.env, [zone.id, j], zone)
-            yield self.env.timeout(trip.start_time)
+            yield self.env.timeout(trip.interarrival)
             self.trip_start.succeed()
             self.trip_start = self.env.event()
             trip.info['arrival_time'] = self.env.now
             self.waiting_list.append(trip)
             print(f'Trip {trip.id} is received at {self.env.now}')
+            trip.start_time = self.env.now
+
+    def missed_trip(self):
+        while True:
+            for trip in self.waiting_list:
+                if trip.mode == 'unassigned' and self.env.now > (trip.start_time + 10):
+                    trip.mode = 'missed'
+                    print (f'trip {trip.id} is missed at {self.env.now}')
+            yield self.env.timeout(1)
 
     def run(self):
         while True:
+            # All vehicles start from parking
+            if self.env.now == 0:
+                for vehicle in self.vehicles:
+                    self.env.process(self.parking_task(vehicle))
+
             event_trip_start = self.trip_start
             event_trip_end = self.trip_end
             event_charging_end = self.charging_end
@@ -226,7 +245,7 @@ class Model:
 
     def obs_PK(self, parking):
         while True:
-            parking.queue.append(parking.plugs.count)
+            parking.queue.append(parking.capacity.count)
             yield self.env.timeout(1)
 
     def save_results(self):

@@ -6,3 +6,4 @@ is finished.
 For example, while serving a request or charging, we receive no request.
 The next extension is that instead of one charging station, there are a significant number of them which distributed within
 the service region.
+

@@ -20,7 +20,7 @@ lg.addHandler(stream_handler)
 
 
 class Vehicle:
-    speed = 1
+    speed = 0.5 # km/min
     charging_cost = 10
     parking_cost = 5
 
@@ -48,7 +48,7 @@ class Vehicle:
         self.charge_state = charge_state
         self.count_request_accepted = 0
         self.rental_time = 0.0
-        self.fuel_consumption = 0.50  # in kWh/km
+        self.fuel_consumption = 0.20  # in kWh/km
         self.count_times = dict()
         self.count_times['active'] = 0
         self.count_times['locked'] = 0
@@ -80,6 +80,7 @@ class Vehicle:
         self.costs = dict()
         self.costs['charging'] = 0.0
         self.costs['parking'] = 0.0
+        self.parking_stop = env.event()
 
     def send(self, trip):
         self.mode = 'locked'
@@ -107,14 +108,14 @@ class Vehicle:
                                'start time': self.time_to_pickup,
                                'end time': trip.start_time + self.time_to_pickup + self.rental_time})"""
 
-        self.count_seconds['idle'] += trip.start_time
+        self.count_seconds['idle'] += trip.interarrival
         self.count_seconds['locked'] += self.time_to_pickup
         self.count_seconds['active'] += self.rental_time
         self.count_times['locked'] += 1
         self.count_times['active'] += 1
         self.count_km['locked'] += distance_to_pickup
         self.count_km['active'] += distance_to_dropoff
-        self.costs['parking'] += trip.start_time * self.charging_cost
+        self.costs['parking'] += trip.interarrival * self.charging_cost
 
     def pick_up(self, trip):
         self.mode = 'active'
@@ -151,11 +152,11 @@ class Vehicle:
     def charging(self, charging_station):
         self.mode = 'charging'
         time = self.env.now
-        if time < 0.25 * 240:
+        if time < 0.25 * 1440:
             self.charging_threshold = 100
-        elif time < 0.50 * 240:
+        elif time < 0.50 * 1440:
             self.charging_threshold = 80
-        elif time < 0.75 * 240:
+        elif time < 0.75 * 1440:
             self.charging_threshold = 80
         else:
             self.charging_threshold = 100
@@ -209,7 +210,8 @@ class Vehicle:
 
     def send_parking(self, parking):
         self.mode = 'ertp'
-        print(f'Vehicle {self.id} is sent to the parking {parking.id} at {self.env.now}')
+        if self.env.now != 0:
+            print(f'Vehicle {self.id} is sent to the parking {parking.id} at {self.env.now}')
         self.distance_to_parking = self.location.distance(parking.location)
         self.time_to_parking = self.distance_to_parking / self.speed
         charge_consumption_to_parking = self.distance_to_parking \
@@ -222,12 +224,9 @@ class Vehicle:
     def parking(self, parking):
         self.mode = 'parking'
         self.count_times['parking'] += 1
-        """self.task_list.append({'mode': 'parking',
-                               'duration': self.charge_duration,
-                               'start time': self.env.now,
-                               'end time': self.env.now + self.charge_duration})"""
         self.location = parking.location
         self.position = self.location.find_zone(zones)
-        print(f'Vehicle {self.id} start parking at {self.env.now}')
+        if self.env.now >= 5:
+            print(f'Vehicle {self.id} start parking at {self.env.now}')
 
 

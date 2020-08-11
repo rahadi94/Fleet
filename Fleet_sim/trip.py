@@ -17,16 +17,17 @@ class Trip:
         self.origin = generate_random(zone.hexagon)
         self.destination = Location(random.uniform(13.00, 13.80), random.uniform(52.00, 52.80))
         for i in range(0, 24):
-            if i*10 <= time <= (i+1)*10:
+            if i*60 <= time <= (i+1)*60:
                 arrival_rate = zone.demand[str(i)].values
         # We generate time-varying trips (i.e. trips are being generated exponentially, in which
         # arrival-rate is a gaussian function of time during the day)
 
-        self.start_time = random.expovariate(arrival_rate)
+        self.interarrival = random.expovariate(arrival_rate)
+        self.start_time = None
 
         distance = self.origin.distance(self.destination)
         self.duration = distance / Vehicle.speed
-        self.end_time = self.start_time + self.duration
+        self.end_time = self.interarrival + self.duration
 
         self.mode = 'unassigned'
         self.info = dict()

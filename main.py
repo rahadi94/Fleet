@@ -1,117 +1,124 @@
 from Fleet_sim.charging_station import ChargingStation
 from Fleet_sim.location import Location
+import pandas as pd
 from Fleet_sim.model import Model
 import simpy
 import random
-
 from Fleet_sim.parking import Parking
 from Fleet_sim.read import zones
 from Fleet_sim.vehicle import Vehicle
 
-env = simpy.Environment()
+
+for iteration in range(1):
+    print(f'iteration:{iteration}')
+    env = simpy.Environment()
+
+    # Initialize Vehicles
 
 
-# Initialize Vehicles
-
-def generate_location():
-    return Location(random.uniform(13.00, 13.80), random.uniform(52.00, 53.00))
+    def generate_location():
+        return Location(random.uniform(52.40, 52.60), random.uniform(13.25, 13.55))
 
 
-vehicles_data = []
-for i in range(500):
-    vehicle_data = dict(id=i, env=env, initial_location=generate_location(), capacity=50, charge_state=100,
-                        mode='idle')
-    vehicles_data.append(vehicle_data)
+    vehicles_data = []
+    for i in range(300):
+        vehicle_data = dict(id=i, env=env, initial_location=generate_location(), capacity=50,
+                            charge_state=random.randint(70, 75),
+                            mode='idle')
+        vehicles_data.append(vehicle_data)
 
-vehicles = list()
+    vehicles = list()
 
-for data in vehicles_data:
-    vehicle = Vehicle(
-        data['id'],
-        data['env'],
-        data['initial_location'],
-        data['capacity'],
-        data['charge_state'],
-        data['mode']
-    )
-    vehicles.append(vehicle)
-vehicles = vehicles[:500]
-# Initializing charging stations
+    for data in vehicles_data:
+        vehicle = Vehicle(
+            data['id'],
+            data['env'],
+            data['initial_location'],
+            data['capacity'],
+            data['charge_state'],
+            data['mode']
+        )
+        vehicles.append(vehicle)
+    # Initializing charging stations
 
-CS_data = [
+    CSs_data = []
+    CSs_optimum = [z for z in zones if z.id in [3, 11, 15, 18, 27, 36, 40, 42, 45, 52, 59, 65, 73, 74, 86, 88]]
+    c = [4, 3, 6, 5, 4, 3, 3, 4, 4, 5, 4, 5, 3, 5, 8, 4]
+    CSs_zones = []
+    for s in range(len(c)):
+        CSs_zones.append(dict(base=CSs_optimum[s], Number_of_chargers=c[s]))
+    for zone in CSs_zones:
+        CS_data = dict(id=zone['base'].id, env=env, location=zone['base'].centre, power=11 / 60,
+                       Number_of_chargers=zone['Number_of_chargers'])
+        CSs_data.append(CS_data)
 
-    dict(id=1, env=env, location=Location(13.85, 52.90), power=11/60, Number_of_chargers=3),
-    dict(id=2, env=env, location=Location(13.10, 52.00), power=11/60, Number_of_chargers=2),
-    dict(id=3, env=env, location=Location(13.20, 52.95), power=11/60, Number_of_chargers=4),
-    dict(id=4, env=env, location=Location(13.95, 52.05), power=11/60, Number_of_chargers=2),
-    dict(id=5, env=env, location=Location(13.05, 52.90), power=11/60, Number_of_chargers=3),
-    dict(id=6, env=env, location=Location(13.40, 52.30), power=11/60, Number_of_chargers=2),
-    dict(id=7, env=env, location=Location(13.10, 52.00), power=11/60, Number_of_chargers=4),
-    dict(id=8, env=env, location=Location(13.35, 52.50), power=11/60, Number_of_chargers=2),
-    dict(id=9, env=env, location=Location(13.95, 52.60), power=11/60, Number_of_chargers=5),
-    dict(id=10, env=env, location=Location(13.55, 52.75), power=11/60, Number_of_chargers=2),
+    '''CSs_data = []
+    for i in zones:
+        CS_data = dict(id=i.id, env=env, location=i.centre, power=11 / 60, Number_of_chargers=500)
+        CSs_data.append(CS_data)'''
 
-]
+    # Initialize Charging Stations
+    charging_stations = list()
 
-# Initialize Charging Stations
-charging_stations = list()
+    for data in CSs_data:
+        charging_station = (ChargingStation(
+            data['id'],
+            data['env'],
+            data['location'],
+            data['power'],
+            data['Number_of_chargers']
 
-for data in CS_data:
-    charging_station = (ChargingStation(
-        data['id'],
-        data['env'],
-        data['location'],
-        data['power'],
-        data['Number_of_chargers']
+        ))
+        charging_stations.append(charging_station)
 
-    ))
-    charging_stations.append(charging_station)
-charging_stations = charging_stations[:10]
+    PKs_data = []
+    for i in range(100):
+        PK_data = dict(id=i, env=env, location=generate_location(), Number_of_parkings=40)
+        PKs_data.append(PK_data)
 
-PKs_data = []
-for i in range(40):
-    PK_data = dict(id=i, env=env, location=generate_location(), Number_of_parkings=10)
-    PKs_data.append(PK_data)
+    # Initialize Charging Stations
+    parkings = list()
 
-# Initialize Charging Stations
-parkings = list()
+    for data in PKs_data:
+        parking = (Parking(
+            data['id'],
+            data['env'],
+            data['location'],
+            data['Number_of_parkings']
 
-for data in PKs_data:
-    parking = (Parking(
-        data['id'],
-        data['env'],
-        data['location'],
-        data['Number_of_parkings']
+        ))
+        parkings.append(parking)
 
-    ))
-    parkings.append(parking)
+    # Run simulation
+    sim = Model(env, vehicles=vehicles, charging_stations=charging_stations, zones=zones, parkings=parkings,
+                simulation_time=1440 * 0.1)
+    for zone in zones:
+        env.process(sim.trip_generation(zone=zone))
+    env.process(sim.run())
+    for vehicle in vehicles:
+        env.process(sim.run_vehicle(vehicle))
 
-# Run simulation
-sim = Model(env, vehicles=vehicles, charging_stations=charging_stations, zones=zones, parkings=parkings)
-for zone in zones:
-    env.process(sim.trip_generation(zone))
-env.process(sim.run())
+    env.process(sim.hourly_charging())
+    env.process(sim.charging_interruption())
 
-for vehicle in vehicles:
-    env.process(sim.obs_Ve(vehicle))
+    for vehicle in vehicles:
+        env.process(sim.obs_Ve(vehicle=vehicle))
 
-for charging_station in charging_stations:
-    env.process(sim.obs_CS(charging_station))
-for parking in parkings:
-    env.process(sim.obs_PK(parking))
+    for charging_station in charging_stations:
+        env.process(sim.obs_CS(charging_station=charging_station))
 
-env.process(sim.missed_trip())
+    """for parking in parkings:
+        env.process(sim.obs_PK(parking))"""
 
-env.run(until=sim.simulation_time)
+    env.process(sim.missed_trip())
 
+    env.run(until=sim.simulation_time)
 
-for vehicle in vehicles:
-    print(vehicle.charge_state)
-    print(vehicle.id)
-    print(vehicle.costs)
-    print(vehicle.count_times)
-    print(vehicle.count_seconds)
-sim.save_results()
+    '''pd_ve = pd.DataFrame()
+    for vehicle in vehicles:
+        pd_ve = pd_ve.append(pd.DataFrame(vehicle.count_seconds.values()).transpose())
+    pd_ve.to_csv('vehicles.csv')'''
+    sim.save_results(iteration)
 """
 Extension and debugs:
 . Critical:
